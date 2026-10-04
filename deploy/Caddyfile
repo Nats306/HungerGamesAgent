@@ -1,0 +1,10 @@
+# Caddy gets free HTTPS certificates (Let's Encrypt) automatically.
+# DOMAIN example with no domain purchase: 3-91-10-20.sslip.io  (your EC2 public IP with dashes)
+
+api.{$DOMAIN} {
+	reverse_proxy backend:8000
+}
+
+auth.{$DOMAIN} {
+	reverse_proxy keycloak:8080
+}

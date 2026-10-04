@@ -1,0 +1,86 @@
+{
+  "realm": "hunger-games",
+  "displayName": "Hunger Games Agent",
+  "enabled": true,
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": true,
+  "verifyEmail": false,
+  "sslRequired": "external",
+  "accessTokenLifespan": 900,
+  "ssoSessionIdleTimeout": 7200,
+  "ssoSessionMaxLifespan": 36000,
+  "passwordPolicy": "length(8)",
+  "roles": {
+    "realm": [
+      { "name": "user", "description": "Can chat and upload documents" },
+      { "name": "admin", "description": "Can also delete any document" }
+    ]
+  },
+  "defaultRole": {
+    "name": "default-roles-hunger-games",
+    "composite": true,
+    "composites": { "realm": ["offline_access", "uma_authorization", "user"] }
+  },
+  "clients": [
+    {
+      "clientId": "hga-frontend",
+      "name": "Hunger Games Agent - Frontend",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "rootUrl": "http://localhost:5173",
+      "baseUrl": "/",
+      "redirectUris": ["http://localhost:5173/*"],
+      "webOrigins": ["+"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "+"
+      },
+      "defaultClientScopes": ["web-origins", "acr", "profile", "roles", "email", "basic"],
+      "protocolMappers": [
+        {
+          "name": "audience-hga-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.custom.audience": "hga-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "demo",
+      "email": "demo@hga.local",
+      "firstName": "Demo",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "demo12345", "temporary": false }],
+      "realmRoles": ["default-roles-hunger-games"]
+    },
+    {
+      "username": "hga-admin",
+      "email": "admin@hga.local",
+      "firstName": "Admin",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "admin12345", "temporary": true }],
+      "realmRoles": ["default-roles-hunger-games", "admin"]
+    }
+  ]
+}

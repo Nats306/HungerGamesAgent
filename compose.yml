@@ -1,0 +1,83 @@
+# Local development stack:
+#   Postgres + pgvector, Keycloak, Ollama (local LLM) and the FastAPI backend.
+# The frontend runs with `npm run dev` (see frontend/README section in the main README).
+name: hunger-games-agent
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-hga}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hga}
+      POSTGRES_DB: hga
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./deploy/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hga} -d hga"]
+      interval: 5s
+      retries: 10
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://db:5432/keycloak
+      KC_DB_USERNAME: ${POSTGRES_USER:-hga}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-hga}
+      # Tokens must always have the same issuer, no matter how Keycloak is reached.
+      KC_HOSTNAME: http://localhost:8080
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+    volumes:
+      - ./keycloak/realm-hunger-games.json:/opt/keycloak/data/import/realm-hunger-games.json:ro
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama:/root/.ollama
+    ports:
+      - "11434:11434"
+
+  # One-shot container that downloads the LLM the first time.
+  ollama-pull:
+    image: ollama/ollama:latest
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["/bin/sh", "-c", "sleep 3 && ollama pull ${LLM_MODEL:-qwen2.5:3b}"]
+    depends_on:
+      - ollama
+    restart: "no"
+
+  backend:
+    build: ./backend
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-hga}:${POSTGRES_PASSWORD:-hga}@db:5432/hga
+      OLLAMA_BASE_URL: http://ollama:11434
+      KEYCLOAK_ISSUER: http://localhost:8080/realms/hunger-games
+      KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/hunger-games/protocol/openid-connect/certs
+    volumes:
+      - ./data:/data:ro
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      ollama:
+        condition: service_started
+
+volumes:
+  pgdata:
+  ollama:

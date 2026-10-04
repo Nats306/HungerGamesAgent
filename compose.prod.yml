@@ -1,0 +1,47 @@
+# Production overrides (EC2 / any VM with Docker). Usage:
+#   docker compose -f compose.yml -f compose.prod.yml up -d --build
+# Needs in .env: DOMAIN, FRONTEND_URL and strong passwords (see deploy/DEPLOY.md).
+
+services:
+  db:
+    ports: !reset []
+    restart: unless-stopped
+
+  keycloak:
+    command: ["start", "--import-realm"]
+    environment:
+      KC_HOSTNAME: https://auth.${DOMAIN}
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_HEALTH_ENABLED: "true"
+    ports: !reset []
+    restart: unless-stopped
+
+  ollama:
+    ports: !reset []
+    restart: unless-stopped
+
+  backend:
+    environment:
+      KEYCLOAK_ISSUER: https://auth.${DOMAIN}/realms/hunger-games
+      CORS_ORIGINS: ${FRONTEND_URL}
+    ports: !reset []
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    environment:
+      DOMAIN: ${DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on:
+      - backend
+      - keycloak
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
